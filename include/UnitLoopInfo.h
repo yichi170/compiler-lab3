@@ -14,16 +14,26 @@ class SingleLoop {
   llvm::BasicBlock *header;
   llvm::BasicBlock *latch;
   llvm::BasicBlock *preheader;
-  llvm::SmallVector<BasicBlock *> body;
+  std::vector<BasicBlock *> body;
 
 public:
   SingleLoop(llvm::BasicBlock *header,
              llvm::BasicBlock *latch,
-             const llvm::SmallVector<BasicBlock *>& body) :
-    header(header), latch(latch), body(body) {}
+             std::vector<BasicBlock *> body) :
+    header(header), latch(latch), body(body), preheader(nullptr) {}
 
-  llvm::SmallVector<BasicBlock *>& getBody() {
+  std::vector<BasicBlock *>& getBody() {
     return body;
+  }
+
+  std::vector<llvm::BasicBlock*> getPredecessorsOutsideLoop() {
+    std::vector<llvm::BasicBlock*> predOutsideLoop;
+    for (llvm::BasicBlock *pred : predecessors(header)) {
+      if (find(body.begin(), body.end(), pred) == body.end()) {
+        predOutsideLoop.push_back(pred);
+      }
+    }
+    return predOutsideLoop;
   }
 
   llvm::BasicBlock *getPreheader() {
@@ -32,12 +42,16 @@ public:
     llvm::Function *F = header->getParent();
     if (!F) return nullptr;
 
-    // Check if the header already has a preheader (single predecessor)
-    if (!header->hasNPredecessorsOrMore(2)) {
-      llvm::dbgs() << "Use existed preheader\n";
-      return *pred_begin(header);
+    std::vector<llvm::BasicBlock *> predsOutsideLoop = getPredecessorsOutsideLoop();
+
+    dbgs() << "Preds outside loop: " << predsOutsideLoop.size() << "\n";
+
+    assert(predsOutsideLoop.size() > 0);
+    if (predsOutsideLoop.size() == 1) {
+      return preheader = predsOutsideLoop[0];
     }
 
+    // an artificial preheader is needed
     llvm::LLVMContext &Ctx = header->getContext();
     preheader = llvm::BasicBlock::Create(Ctx, "preheader", F, header);
 
@@ -56,40 +70,38 @@ public:
       }
     }
 
+    // branch from preheader to header
     llvm::BranchInst::Create(header, preheader);
 
     return preheader;
   }
 
-
-  bool containInst(llvm::Instruction* I) {
-    for (auto *BB: body) {
-      if (I->isUsedInBasicBlock(BB))
-        return true;
-    }
-    return false;
-  }
-
-  bool checkInvariant(llvm::Instruction& I) {
+  bool checkInvariant(llvm::Instruction& I, const std::vector<llvm::Instruction *> &loopInvariantInstructions) {
     if (isa<llvm::PHINode>(&I)) {
       dbgs() << "Skipping PHI node\n";
       return false; // Return false early, as PHI nodes cannot be LICM
     }
 
-    bool isInv = true;
     dbgs() << "operand: ";
     for (auto& op : I.operands()) {
       dbgs() << " " << op.get()->getName();
 
-      if (auto* opInst = dyn_cast<llvm::Instruction>(op.get())) {
-        if (containInst(opInst)) {
-          isInv = false;
-          break;
+      if (llvm::isa<llvm::Constant>(op.get())) {
+        continue;
+      }
+      llvm::Value *v = llvm::dyn_cast<llvm::Value>(op.get());
+      bool isOperandLoopInvariant = false;
+      for (llvm::Instruction* I: loopInvariantInstructions) {
+        if (llvm::dyn_cast<llvm::Value>(I) == v) {
+          isOperandLoopInvariant = true;
         }
       }
+      if (!isOperandLoopInvariant) {
+        dbgs() << " is not loop invariant\n";
+        return false;
+      }
     }
-    dbgs() << "\n";
-    return isInv;
+    return true;
   }
 };
 
@@ -99,13 +111,13 @@ class UnitLoopInfo
 public:
   void add(llvm::BasicBlock *header,
            llvm::BasicBlock *latch,
-           const llvm::SmallVector<BasicBlock *>& body);
+           std::vector<BasicBlock *> body);
 
-  llvm::SmallVector<SingleLoop *>& getLoops() {
+  std::vector<SingleLoop *>& getLoops() {
     return loops;
   }
 private:
-  llvm::SmallVector<SingleLoop *> loops;
+  std::vector<SingleLoop *> loops;
 };
 
 /// Loop Identification Analysis Pass. Produces a UnitLoopInfo object which

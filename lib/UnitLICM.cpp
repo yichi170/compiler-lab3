@@ -7,6 +7,8 @@
 #include <llvm/Support/Debug.h>
 #include <llvm/Support/OptimizedStructLayout.h>
 
+#include <unordered_set>
+
 #include "UnitLoopInfo.h"
 
 #define DEBUG_TYPE UnitLICM
@@ -24,6 +26,25 @@ PreservedAnalyses UnitLICM::run(Function &F, FunctionAnalysisManager &FAM)
     UnitLoopInfo &Loops = FAM.getResult<UnitLoopAnalysis>(F);
 
     // Perform the optimization
+    for (auto *loop: Loops.getLoops()) {
+        std::vector<llvm::Instruction *> loopInvariantInstructions; // move the preheader
+        for (auto *BB: loop->getBody()) {
+            for (auto &I: *BB) {
+                if (loop->checkInvariant(I, loopInvariantInstructions)) {
+                    dbgs() << "Found invariant: " << I << "\n";
+                    loopInvariantInstructions.push_back(&I);
+                }
+            }
+        }
+
+        // Move the instructions to the preheader
+        auto *preheader = loop->getPreheader();
+        dbgs() << "Preheader: " << preheader->getName() << "\n";
+        dbgs() << "Terminator: " << preheader->getTerminator()->getName() << "\n";
+        for (llvm::Instruction* I: loopInvariantInstructions) {
+            I->moveBefore((llvm::BasicBlock::iterator)preheader->getTerminator());
+        }
+    }
 
     // Set proper preserved analyses
     return PreservedAnalyses::all();

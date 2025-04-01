@@ -36,7 +36,7 @@ UnitLoopInfo UnitLoopAnalysis::run(Function &F, FunctionAnalysisManager &FAM) {
 
   for (auto [latch, header]: backEdges) {
     visited.clear();
-    SmallVector<BasicBlock *> loopBB;
+    std::vector<BasicBlock *> loopBB;
     bool is_loop = true;
     std::queue<BasicBlock *> q;
     q.push(latch);
@@ -80,7 +80,7 @@ AnalysisKey UnitLoopAnalysis::Key;
 
 void UnitLoopInfo::add(llvm::BasicBlock *header,
                        llvm::BasicBlock *latch,
-                       const llvm::SmallVector<BasicBlock *>& body)
+                       std::vector<BasicBlock *> body)
 {
   this->loops.push_back(new SingleLoop(header, latch, body));
 }
