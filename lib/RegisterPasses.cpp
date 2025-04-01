@@ -28,6 +28,8 @@ llvm::PassPluginLibraryInfo getUnitProjectPluginInfo()
                         {
                             if (Name == "unit-licm")
                             {
+                                FPM.addPass(LoopSimplifyPass()); // canonicalize loops
+                                FPM.addPass(LCSSAPass()); // close loops
                                 FPM.addPass(ece479k::UnitLICM());
                                 return true;
                             }
