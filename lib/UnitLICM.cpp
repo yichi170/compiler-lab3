@@ -30,7 +30,7 @@ PreservedAnalyses UnitLICM::run(Function &F, FunctionAnalysisManager &FAM)
         std::vector<llvm::Instruction *> loopInvariantInstructions; // move the preheader
         for (auto *BB: loop->getBody()) {
             for (auto &I: *BB) {
-                if (loop->checkInvariant(I, loopInvariantInstructions)) {
+                if (loop->isInstLoopInvariant(I, loopInvariantInstructions)) {
                     dbgs() << "Found invariant: " << I << "\n";
                     loopInvariantInstructions.push_back(&I);
                 }

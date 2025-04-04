@@ -85,7 +85,7 @@ public:
     return false;
   }
 
-  bool checkInvariant(llvm::Instruction& I, const std::vector<llvm::Instruction *> &loopInvariantInstructions) {
+  bool isInstLoopInvariant(llvm::Instruction& I, const std::vector<llvm::Instruction *> &loopInvariantInstructions) {
     if (isa<llvm::PHINode>(&I)) {
       dbgs() << "Skipping PHI node\n";
       return false; // Return false early, as PHI nodes cannot be LICM
