@@ -76,6 +76,15 @@ public:
     return preheader;
   }
 
+  bool isValueLoopInvariant(llvm::Value *v, const std::vector<llvm::Instruction *> &loopInvariantInstructions) {
+    for (llvm::Instruction* I: loopInvariantInstructions) {
+      if (llvm::dyn_cast<llvm::Value>(I) == v) {
+        return true;
+      }
+    }
+    return false;
+  }
+
   bool checkInvariant(llvm::Instruction& I, const std::vector<llvm::Instruction *> &loopInvariantInstructions) {
     if (isa<llvm::PHINode>(&I)) {
       dbgs() << "Skipping PHI node\n";
@@ -90,13 +99,7 @@ public:
         continue;
       }
       llvm::Value *v = llvm::dyn_cast<llvm::Value>(op.get());
-      bool isOperandLoopInvariant = false;
-      for (llvm::Instruction* I: loopInvariantInstructions) {
-        if (llvm::dyn_cast<llvm::Value>(I) == v) {
-          isOperandLoopInvariant = true;
-        }
-      }
-      if (!isOperandLoopInvariant) {
+      if (!isValueLoopInvariant(v, loopInvariantInstructions)) {
         dbgs() << " is not loop invariant\n";
         return false;
       }
