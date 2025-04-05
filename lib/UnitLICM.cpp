@@ -6,6 +6,7 @@
 #include <llvm/IR/Function.h>
 #include <llvm/Support/Debug.h>
 #include <llvm/Support/OptimizedStructLayout.h>
+#include <llvm/Analysis/AliasAnalysis.h>
 
 #include <unordered_set>
 
@@ -24,12 +25,20 @@ PreservedAnalyses UnitLICM::run(Function &F, FunctionAnalysisManager &FAM)
     // Acquires the UnitLoopInfo object constructed by your Loop Identification
     // (LoopAnalysis) pass
     UnitLoopInfo &Loops = FAM.getResult<UnitLoopAnalysis>(F);
+    llvm::AliasAnalysis &AA = FAM.getResult<AAManager>(F);
 
     // Perform the optimization
     for (auto *loop: Loops.getLoops()) {
         std::vector<llvm::Instruction *> loopInvariantInstructions; // move the preheader
         for (auto *BB: loop->getBody()) {
             for (auto &I: *BB) {
+                if (llvm::isa<llvm::LoadInst>(&I) || llvm::isa<llvm::StoreInst>(&I)) {
+                    dbgs() << "Found load/store: " << I << "\n";
+                    if (loop->hasAlias(I, AA)) {
+                        dbgs() << "No alias was found: " << I << "\n";
+                        continue;
+                    }
+                } 
                 if (loop->isInstLoopInvariant(I, loopInvariantInstructions)) {
                     dbgs() << "Found invariant: " << I << "\n";
                     loopInvariantInstructions.push_back(&I);
@@ -39,8 +48,6 @@ PreservedAnalyses UnitLICM::run(Function &F, FunctionAnalysisManager &FAM)
 
         // Move the instructions to the preheader
         auto *preheader = loop->getPreheader();
-        dbgs() << "Preheader: " << preheader->getName() << "\n";
-        dbgs() << "Terminator: " << preheader->getTerminator()->getName() << "\n";
         for (llvm::Instruction* I: loopInvariantInstructions) {
             I->moveBefore((llvm::BasicBlock::iterator)preheader->getTerminator());
         }

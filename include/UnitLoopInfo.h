@@ -2,6 +2,7 @@
 #define INCLUDE_UNIT_LOOP_INFO_H
 #include "llvm/IR/PassManager.h"
 #include "llvm/Transforms/Utils/BasicBlockUtils.h"
+#include <llvm/Analysis/AliasAnalysis.h>
 
 using namespace llvm;
 
@@ -105,6 +106,25 @@ public:
       }
     }
     return true;
+  }
+
+  bool hasAlias(llvm::Instruction& I, llvm::AliasAnalysis &AA) {
+    for (auto *BB: getBody()) {
+      for (auto &J: *BB) {
+        if (llvm::isa<llvm::LoadInst>(&I) && llvm::isa<llvm::StoreInst>(&J)) {
+          if (AA.alias(&I, &J)) { // 0 -> NoAlias, 1 -> MayAlias, 2 -> PartialAlias, 3 -> MustAlias
+            dbgs() << "Found alias: " << I << "\n";
+            return true;
+          }
+        } else if (llvm::isa<llvm::StoreInst>(&I) && llvm::isa<llvm::LoadInst>(&J)) {
+          if (AA.alias(&I, &J)) {
+            dbgs() << "Found alias: " << I << "\n";
+            return true;
+          }
+        }
+      }
+    }
+    return false;
   }
 };
 
