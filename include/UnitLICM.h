@@ -10,6 +10,9 @@ namespace ece479k
 struct UnitLICM : PassInfoMixin<UnitLICM>
 {
     PreservedAnalyses run(Function &F, FunctionAnalysisManager &FAM);
+    int numComputationInstructions = 0;
+    int numStoreInstructions = 0;
+    int numLoadInstructions = 0;
 };
 } // namespace ece479k
 

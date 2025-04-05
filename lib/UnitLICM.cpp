@@ -50,7 +50,18 @@ PreservedAnalyses UnitLICM::run(Function &F, FunctionAnalysisManager &FAM)
         auto *preheader = loop->getPreheader();
         for (llvm::Instruction* I: loopInvariantInstructions) {
             I->moveBefore((llvm::BasicBlock::iterator)preheader->getTerminator());
+            if (llvm::isa<llvm::StoreInst>(I)) {
+                numStoreInstructions++;
+            } else if (llvm::isa<llvm::LoadInst>(I)) {
+                numLoadInstructions++;
+            } else {
+                numComputationInstructions++;
+            }
         }
+        dbgs() << "Statistics:\n"
+               << numComputationInstructions << " computation instructions, \n"
+               << numStoreInstructions << " store instructions, and \n"
+               << numLoadInstructions << " load instructions to the preheader\n";
     }
 
     // Set proper preserved analyses
