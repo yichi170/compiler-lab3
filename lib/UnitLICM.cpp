@@ -30,6 +30,7 @@ PreservedAnalyses UnitLICM::run(Function &F, FunctionAnalysisManager &FAM)
     // Perform the optimization
     for (auto *loop: Loops.getLoops()) {
         std::vector<llvm::Instruction *> loopInvariantInstructions; // move the preheader
+
         for (auto *BB: loop->getBody()) {
             for (auto &I: *BB) {
                 if (llvm::isa<llvm::LoadInst>(&I) || llvm::isa<llvm::StoreInst>(&I)) {
@@ -39,7 +40,7 @@ PreservedAnalyses UnitLICM::run(Function &F, FunctionAnalysisManager &FAM)
                         continue;
                     }
                 } 
-                if (loop->isInstLoopInvariant(I, loopInvariantInstructions)) {
+                if (loop->isInstLoopInvariant(I, loopInvariantInstructions, F)) {
                     dbgs() << "Found invariant: " << I << "\n";
                     loopInvariantInstructions.push_back(&I);
                 }

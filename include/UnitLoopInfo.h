@@ -55,6 +55,7 @@ public:
     // an artificial preheader is needed
     llvm::LLVMContext &Ctx = header->getContext();
     preheader = llvm::BasicBlock::Create(Ctx, "preheader", F, header);
+    dbgs() << "Creating preheader: " << *preheader << "\n";
 
     // Redirect all predecessors of the loop header to the new preheader
     std::vector<llvm::BasicBlock *> preds(pred_begin(header), pred_end(header));
@@ -77,30 +78,37 @@ public:
     return preheader;
   }
 
-  bool isValueLoopInvariant(llvm::Value *v, const std::vector<llvm::Instruction *> &loopInvariantInstructions) {
+  bool isValueLoopInvariant(llvm::Value *v, const std::vector<llvm::Instruction *> &loopInvariantInstructions, llvm::Function &F) {
     for (llvm::Instruction* I: loopInvariantInstructions) {
       if (llvm::dyn_cast<llvm::Value>(I) == v) {
+        return true;
+      }
+    }
+    for (auto &arg: F.args()) {
+      if (llvm::dyn_cast<llvm::Value>(&arg) == v) {
         return true;
       }
     }
     return false;
   }
 
-  bool isInstLoopInvariant(llvm::Instruction& I, const std::vector<llvm::Instruction *> &loopInvariantInstructions) {
-    if (isa<llvm::PHINode>(&I)) {
-      dbgs() << "Skipping PHI node\n";
+  bool isInstLoopInvariant(llvm::Instruction& I, const std::vector<llvm::Instruction *> &loopInvariantInstructions,
+                          llvm::Function &F) {
+    if (isa<llvm::PHINode>(&I) || isa<llvm::CallInst>(&I)) {
+      dbgs() << "Skipping PHI node or call instruction\n";
       return false; // Return false early, as PHI nodes cannot be LICM
     }
 
     dbgs() << "operand: ";
     for (auto& op : I.operands()) {
-      dbgs() << " " << op.get()->getName();
+      dbgs() << op.get()->getName() << " ";
 
       if (llvm::isa<llvm::Constant>(op.get())) {
+        dbgs() << " is a constant, so continue\n";
         continue;
       }
       llvm::Value *v = llvm::dyn_cast<llvm::Value>(op.get());
-      if (!isValueLoopInvariant(v, loopInvariantInstructions)) {
+      if (!isValueLoopInvariant(v, loopInvariantInstructions, F)) {
         dbgs() << " is not loop invariant\n";
         return false;
       }

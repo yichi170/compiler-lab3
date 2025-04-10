@@ -83,4 +83,5 @@ void UnitLoopInfo::add(llvm::BasicBlock *header,
                        std::vector<BasicBlock *> body)
 {
   this->loops.push_back(new SingleLoop(header, latch, body));
+  dbgs() << "Added a loop with a preheader: " << this->loops.back()->getPreheader() << "\n";
 }
